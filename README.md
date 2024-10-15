@@ -65,6 +65,10 @@ This fork introduces major changes and enhancements, focusing on efficiency, com
 
 * I am not responsible for any issues caused by this module.
 
+## Download
+
+* **Releases will be available on [Pling](https://www.pling.com/p/2129780/) and changelogs on [Telegram / PixelProps](https://t.me/PixelProps)**
+
 ## Credits
 
 * [T3SL4](https://t.me/T3SL4) on [PixelProps](https://t.me/PixelProps) (me, author of this fork)
