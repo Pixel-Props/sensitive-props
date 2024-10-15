@@ -1,0 +1,10 @@
+# reset oem unlock toggle to disable
+on property:sys.oem_unlock_allowed=*
+    exec u:r:magisk:s0 root root -- ${MAGISKTMP}/resetprop -n sys.oem_unlock_allowed 0
+
+on property:ro.oem_unlock_supported=*
+    exec u:r:magisk:s0 root root -- ${MAGISKTMP}/resetprop -n ro.oem_unlock_supported 0    
+
+# hide adbd is running
+on property:init.svc.adbd=*
+    exec u:r:magisk:s0 root root -- ${MAGISKTMP}/resetprop -n init.svc.adbd stopped
