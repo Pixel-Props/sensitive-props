@@ -75,8 +75,8 @@ else
   ui_print "- Device platform: $ARCH"
 fi
 
-if [ "$API" -lt 30 ]; then
-  abort "! Only support Android 11+ devices"
+if [ "$API" -lt 29 ]; then
+  abort "! Only support Android 10+ devices"
 fi
 
 # Set Module permissions
