@@ -25,10 +25,8 @@ replace_value_resetprop() { # Replace a substring in a property's value
     [ "$VALUE" == "$VALUE_NEW" ] || resetprop -v -n "$1" "$VALUE_NEW"
 }
 
-# Since it is unsafe to change full length strings within binary image pages
-# We must specify short strings for the search so that there are not binary chunks in between
-# magiskboot hexpatch issue
-# ref: https://github.com/topjohnwu/Magisk/issues/8315
+# This function aims to delete or obfuscate specific strings within Android system properties,
+# by replacing them with random hexadecimal values which should match with the original string length.
 hexpatch_deleteprop() {
     search_string="$1"                                                           # The string to search for in property names
     search_hex=$(echo -n "$search_string" | xxd -p | tr '[:lower:]' '[:upper:]') # Hex representation in uppercase
@@ -57,9 +55,9 @@ hexpatch_deleteprop() {
 
                 # Check if the patch was successfully applied
                 if [ $? -eq 0 ]; then
-                    echo "Successfully patched $prop_file (replaced part of '$search_string')"
+                    echo " ? Successfully patched $prop_file (replaced part of '$search_string')"
                     #else
-                    #echo "Failed to patch $prop_file (replacing part of '$search_string')."
+                    #echo " ! Failed to patch $prop_file (replacing part of '$search_string')."
                 fi
             done
         done
@@ -70,9 +68,14 @@ exist_hexpatch_deleteprop() { # Reset a property if it exists
     [ -n "$(resetprop -Z "$1" | cut -d' ' -f2)" ] && hexpatch_deleteprop "$1"
 }
 
+# Since it is unsafe to change full length strings within binary image pages
+# We must specify short strings for the search so that there are not binary chunks in between
+# magiskboot hexpatch issue
+# ref: https://github.com/topjohnwu/Magisk/issues/8315
+# tldr; use hexpatch_deleteprop instead.
 hexpatch_replaceprop() {
-    local search_string="$1" # The string to search for in property names
-    local new_string="$2"    # The new string to replace the search string with
+    search_string="$1" # The string to search for in property names
+    new_string="$2"    # The new string to replace the search string with
 
     # Check if lengths match, abort if not
     if [ ${#search_string} -ne ${#new_string} ]; then
@@ -97,9 +100,9 @@ hexpatch_replaceprop() {
 
                 # Check if the patch was successfully applied
                 if [ $? -eq 0 ]; then
-                    echo "Successfully patched $prop_file (renamed part of '$search_string' to '$new_string')"
+                    echo " ? Successfully patched $prop_file (renamed part of '$search_string' to '$new_string')"
                     #else
-                    #echo "Failed to patch $prop_file (renaming part of '$search_string')."
+                    #echo " ! Failed to patch $prop_file (renaming part of '$search_string')."
                 fi
             done
         done

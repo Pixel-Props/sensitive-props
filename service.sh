@@ -1,7 +1,14 @@
 #!/system/bin/busybox sh
 
-MODPATH="${0%/*}"     # Get the directory where the script is located
-. "$MODPATH"/utils.sh # Load utils
+MODPATH="${0%/*}" # Get the directory where the script is located
+
+# If MODPATH is empty or is not default modules path, use current path
+if [ -z "$MODPATH" ] || ! echo "$MODPATH" | grep -q '/data/adb/modules/'; then
+    MODPATH="$(dirname "$(readlink -f "$0")")"
+fi
+
+# Using util_functions.sh
+[ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
 # Wait for boot completion
 while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 5; done
@@ -67,8 +74,8 @@ while true; do
     hexpatch_deleteprop "Infinity"
     # add more...
 
-    sleep 900 # Sleep for 15 minutes
-done &        # Run the loop in the background
+    sleep 3600 # Sleep for 1 hour
+done &         # Run the loop in the background
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1

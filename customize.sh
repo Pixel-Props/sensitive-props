@@ -1,56 +1,62 @@
 #!/system/bin/busybox sh
 
+# Define the path of busybox using find and set it to $PATH then export it
+if ! command -v busybox >/dev/null 2>&1; then
+  BUSYBOX_PATH=$(find "/data/adb" -maxdepth 3 -name busybox -exec dirname {} \; | tr '\n' ':')
+  export PATH="$PATH:${BUSYBOX_PATH%:}"
+fi
+
 enforce_install_from_app() {
-  if $BOOTMODE; then
-    ui_print "- Installing from Magisk / KernelSU app"
-  else
-    ui_print "*********************************************************"
-    ui_print "! Install from recovery is NOT supported"
-    ui_print "! Recovery sucks"
-    ui_print "! Please install from Magisk / KernelSU app"
-    abort "*********************************************************"
+  if ! $BOOTMODE; then
+    ui_print "****************************************************"
+    ui_print "! Install from Recovery is NOT supported !"
+    ui_print "! Please install from Magisk / KernelSU / APatch !"
+    abort "****************************************************"
   fi
 }
 
 check_magisk_version() {
   ui_print "- Magisk version: $MAGISK_VER_CODE"
+
   if [ "$MAGISK_VER_CODE" -lt 26302 ]; then
-    ui_print "*********************************************************"
-    ui_print "! Please install Magisk v26.3+ (26302+)"
-    abort    "*********************************************************"
+    ui_print "******************************************"
+    ui_print "! Please install Magisk v26.3+ (26302+) !"
+    abort "******************************************"
   fi
 }
 
 check_ksu_version() {
   ui_print "- KernelSU version: $KSU_KERNEL_VER_CODE (kernel) + $KSU_VER_CODE (ksud)"
+
   if ! [ "$KSU_KERNEL_VER_CODE" ] || [ "$KSU_KERNEL_VER_CODE" -lt 10940 ]; then
-    ui_print "*********************************************************"
-    ui_print "! KernelSU version is too old!"
-    ui_print "! Please update KernelSU to latest version"
-    abort    "*********************************************************"
+    ui_print "**********************************************"
+    ui_print "! KernelSU version is too old !"
+    ui_print "! Please update KernelSU to latest version !"
+    abort "**********************************************"
   elif [ "$KSU_KERNEL_VER_CODE" -ge 20000 ]; then
-    ui_print "*********************************************************"
-    ui_print "! KernelSU version abnormal!"
-    ui_print "! Please integrate KernelSU into your kernel"
-    ui_print "  as submodule instead of copying the source code"
-    abort    "*********************************************************"
+    ui_print "*****************************************************"
+    ui_print "! KernelSU version abnormal !"
+    ui_print "! Please integrate KernelSU into your kernel !"
+    ui_print "! as submodule instead of copying the source code !"
+    abort "*****************************************************"
   fi
   if ! [ "$KSU_VER_CODE" ] || [ "$KSU_VER_CODE" -lt 10942 ]; then
-    ui_print "*********************************************************"
-    ui_print "! ksud version is too old!"
-    ui_print "! Please update KernelSU Manager to latest version"
-    abort    "*********************************************************"
+    ui_print "******************************************************"
+    ui_print "! ksud version is too old !"
+    ui_print "! Please update KernelSU Manager to latest version !"
+    abort "******************************************************"
   fi
 }
 
 check_zygisksu_version() {
-  ZYGISKSU_VERSION=$(cat /data/adb/modules/zygisksu/module.prop | grep versionCode | sed 's/versionCode=//g')
+  ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/zygisksu/module.prop | sed 's/versionCode=//g')
   ui_print "- Zygisksu version: $ZYGISKSU_VERSION"
+
   if ! [ "$ZYGISKSU_VERSION" ] || [ "$ZYGISKSU_VERSION" -lt 106 ]; then
-    ui_print "*********************************************************"
-    ui_print "! Zygisksu version is too old!"
-    ui_print "! Please update Zygisksu to latest version"
-    abort    "*********************************************************"
+    ui_print "**********************************************"
+    ui_print "! Zygisksu version is too old !"
+    ui_print "! Please update Zygisksu to latest version !"
+    abort "**********************************************"
   fi
 }
 
@@ -73,15 +79,10 @@ if [ "$API" -lt 30 ]; then
   abort "! Only support Android 11+ devices"
 fi
 
-# mv -f "$MODPATH/bin/$ABI/resetprop" "$MODPATH"
-# rm -rf "$MODPATH/bin"
-
+# Set Module permissions
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 
-sh "$MODPATH/service.sh" 2>&1
+# Running the service early using busybox
+[ -f "$MODPATH/service.sh" ] && busybox sh "$MODPATH/service.sh" 2>&1
 
-# Fix init.rc/ART and Recovery/Magisk detections
-ui_print "- Fixing init.rc/ART and Recovery/Magisk detections..."
-mv /vendor/bin/install-recovery.sh /vendor/bin/iinstall-recovery.sh >/dev/null 2>&1
-mv /system/bin/install-recovery.sh /system/bin/iinstall-recovery.sh >/dev/null 2>&1
-ui_print "  Please uninstall this module before dirty-flashing/updating the ROM."
+ui_print "? Please uninstall this module before dirty-flashing/updating the ROM."
