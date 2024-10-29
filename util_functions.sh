@@ -33,7 +33,7 @@ hexpatch_deleteprop() {
 
     # Path to magiskboot
     magiskboot_path=$(which magiskboot 2>/dev/null || find /data/adb /data/data/me.bmax.apatch/patch/ -name magiskboot -print -quit 2>/dev/null)
-    
+
     # Generate a random LOWERCASE alphanumeric string of the required length, but only using 0-9 and a-f
     replacement_string=$(cat /dev/urandom | tr -dc '0-9a-f' | head -c ${#search_string})
 
@@ -87,7 +87,7 @@ hexpatch_replaceprop() {
 
     # Path to magiskboot
     magiskboot_path=$(which magiskboot 2>/dev/null || find /data/adb /data/data/me.bmax.apatch/patch/ -name magiskboot -print -quit 2>/dev/null)
-    
+
     # Get property list from search string
     # Then get a list of property file names using resetprop -Z and pipe it to find
     getprop | grep "$search_string" | cut -d'[' -f2 | cut -d']' -f1 | while read prop_name; do
