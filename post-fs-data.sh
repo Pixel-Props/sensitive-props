@@ -25,10 +25,12 @@ fi
 # Using util_functions.sh
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
-# Set vbmeta verifiedBootHash from file (if present and not empty)
+# Set vbmeta verifiedBootHash from file (if present and not empty else fallback fake to hash)
 BOOT_HASH_FILE="/data/adb/boot.hash"
 if [ -s "$BOOT_HASH_FILE" ]; then
-    resetprop -v -n ro.boot.vbmeta.digest "$(tr '[:upper:]' '[:lower:]' <"$BOOT_HASH_FILE")"
+    resetprop -v -n ro.boot.vbmeta.digest "$(tr '[:upper:]' '[:lower:]' < "$BOOT_HASH_FILE")"
+else
+    resetprop -v -n ro.boot.vbmeta.digest "23410bcf5c787562a17c04925a44d4ef6f73b6422516b2560d95a0348680f298"
 fi
 
 # Cleanup and replacements (avoiding duplicates with service.sh)
