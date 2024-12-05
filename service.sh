@@ -27,55 +27,7 @@ replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
 replace_value_resetprop vendor.camera.aux.packagelist "lineageos." ""
 replace_value_resetprop ro.build.version.incremental "eng." ""
 
-# Periodically delete LineageOS and EvolutionX props
-while true; do
-    hexpatch_deleteprop "lineage"
-    hexpatch_deleteprop "evolution"
-    hexpatch_deleteprop "crdroid"
-    hexpatch_deleteprop "crDroid"
-    hexpatch_deleteprop "aospa"
-    hexpatch_deleteprop "LSPosed"
-    hexpatch_deleteprop "aicp"
-    hexpatch_deleteprop "arter97"
-    hexpatch_deleteprop "blu_spark"
-    hexpatch_deleteprop "cyanogenmod"
-    hexpatch_deleteprop "deathly"
-    hexpatch_deleteprop "elementalx"
-    hexpatch_deleteprop "elite"
-    hexpatch_deleteprop "franco"
-    hexpatch_deleteprop "hadeskernel"
-    hexpatch_deleteprop "morokernel"
-    hexpatch_deleteprop "noble"
-    hexpatch_deleteprop "optimus"
-    hexpatch_deleteprop "slimroms"
-    hexpatch_deleteprop "sultan"
-    hexpatch_deleteprop "aokp"
-    hexpatch_deleteprop "bharos"
-    hexpatch_deleteprop "calyxos"
-    hexpatch_deleteprop "calyxOS"
-    hexpatch_deleteprop "divestos"
-    hexpatch_deleteprop "emteria.os"
-    hexpatch_deleteprop "grapheneos"
-    hexpatch_deleteprop "indus"
-    hexpatch_deleteprop "iodéos"
-    hexpatch_deleteprop "kali"
-    hexpatch_deleteprop "nethunter"
-    hexpatch_deleteprop "omnirom"
-    hexpatch_deleteprop "paranoid"
-    hexpatch_deleteprop "replicant"
-    hexpatch_deleteprop "resurrection"
-    hexpatch_deleteprop "remix"
-    hexpatch_deleteprop "pixelexperience"
-    hexpatch_deleteprop "shift"
-    hexpatch_deleteprop "volla"
-    hexpatch_deleteprop "icosa"
-    hexpatch_deleteprop "kirisakura"
-    hexpatch_deleteprop "infinity"
-    hexpatch_deleteprop "Infinity"
-    # add more...
-
-    sleep 3600 # Sleep for 1 hour
-done &         # Run the loop in the background
+sh $MODPATH/hourly.sh &
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
