@@ -50,3 +50,4 @@ hexpatch_deleteprop "kirisakura"
 hexpatch_deleteprop "infinity"
 hexpatch_deleteprop "Infinity"
 
+echo $(date) >> /debug_ramdisk/sensitive_props.log
