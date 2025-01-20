@@ -1,2 +1,21 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Enforce LF line endings for build.prop and related files
+*.sh text eol=lf
+*.prop text eol=lf
+*.config text eol=lf
+
+# README.md should also have consistent line endings
+README.md text eol=lf
+
+# Mark shell scripts as text and enforce LF
+*.sh text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary

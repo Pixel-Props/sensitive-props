@@ -1,9 +1,9 @@
 #!/system/bin/busybox sh
 
-# Define the path of busybox using find and set it to $PATH then export it
+# Define the path of root manager applet bin directories using find and set it to $PATH then export it
 if ! command -v busybox >/dev/null 2>&1; then
-  BUSYBOX_PATH=$(find "/data/adb" -maxdepth 3 -name busybox -exec dirname {} \; | tr '\n' ':')
-  export PATH="$PATH:${BUSYBOX_PATH%:}"
+  TOYS_PATH=$(find "/data/adb" -maxdepth 3 \( -name busybox -o -name ksu_sus \) -exec dirname {} \; | sort -u | tr '\n' ':')
+  export PATH=$(echo -n "$PATH:$TOYS_PATH" | tr ':' '\n' | uniq | paste -sd: -)
 fi
 
 enforce_install_from_app() {
