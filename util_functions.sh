@@ -98,7 +98,7 @@ hexpatch_deleteprop() {
 
         # Get property list from search string
         # Then get a list of property file names using resetprop -Z and pipe it to find
-        getprop | grep "$search_string" | cut -d'[' -f2 | cut -d']' -f1 | while read prop_name; do
+        getprop | cut -d'[' -f2 | cut -d']' -f1 | grep "$search_string" | while read prop_name; do
             resetprop -Z "$prop_name" | cut -d' ' -f2 | cut -d':' -f3 | while read -r prop_file_name_base; do
                 # Use find to locate the actual property file (potentially in a subdirectory)
                 # and iterate directly over the found paths
@@ -150,7 +150,7 @@ hexpatch_replaceprop() {
 
     # Get property list from search string
     # Then get a list of property file names using resetprop -Z and pipe it to find
-    getprop | grep "$search_string" | cut -d'[' -f2 | cut -d']' -f1 | while read prop_name; do
+    getprop | cut -d'[' -f2 | cut -d']' -f1 | grep "$search_string" | while read prop_name; do
         resetprop -Z "$prop_name" | cut -d' ' -f2 | cut -d':' -f3 | while read -r prop_file_name_base; do
             # Use find to locate the actual property file (potentially in a subdirectory)
             # and iterate directly over the found paths
