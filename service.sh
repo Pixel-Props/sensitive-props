@@ -17,48 +17,6 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Get initial Pihooks property names.
-pihook_props=$(getprop | grep 'pihooks' | cut -d ':' -f 1 | tr -d '[]')
-
-# Check if Pihooks properties exist.
-if [ -n "$pihook_props" ]; then
-  ui_print " - Disabling pihooks (internal spoofing)..."
-
-  # Continuously monitor and modify Pihooks properties in the background.
-  while true; do
-    for pihook in $pihook_props; do
-      # Get the original value of the property.
-      original_value=$(getprop "$pihook")
-
-      # Check if it's a boolean value using is_bool.
-      if is_bool "$original_value"; then # It's a boolean, set to 0 to disable.
-        disabled_value="0"
-        ui_print "  ? Property $pihook set to 0 (disabled)"
-      else # It's a string, set to empty to disable.
-        disabled_value=""
-        ui_print "  ? Property $pihook set to empty string (disabled)"
-      fi
-
-      # Use check_resetprop to modify the property if it's not already disabled.
-      check_resetprop "$pihook" "$disabled_value"
-    done
-
-    # Wait for 10 seconds before the next check.
-    sleep 10
-  done &
-else
-  echo " - No Pihooks properties found."
-fi
-
-# Fix display properties to remove custom ROM references
-replace_value_resetprop ro.build.flavor "lineage_" ""
-replace_value_resetprop ro.build.flavor "userdebug" "user"
-replace_value_resetprop ro.build.display.id "lineage_" ""
-replace_value_resetprop ro.build.display.id "userdebug" "user"
-replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
-replace_value_resetprop vendor.camera.aux.packagelist "lineageos." ""
-replace_value_resetprop ro.build.version.incremental "eng." ""
-
 # Periodically hexpatch delete custom ROM props
 while true; do
   hexpatch_deleteprop "LSPosed" \
@@ -73,6 +31,15 @@ while true; do
   # Wait for 1 hour before the next check.
   sleep 3600
 done &
+
+# Fix display properties to remove custom ROM references
+replace_value_resetprop ro.build.flavor "lineage_" ""
+replace_value_resetprop ro.build.flavor "userdebug" "user"
+replace_value_resetprop ro.build.display.id "lineage_" ""
+replace_value_resetprop ro.build.display.id "userdebug" "user"
+replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
+replace_value_resetprop vendor.camera.aux.packagelist "lineageos." ""
+replace_value_resetprop ro.build.version.incremental "eng." ""
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
@@ -146,6 +113,18 @@ check_resetprop ro.adb.secure 1
 # [ "$(resetprop -v ro.product.first_api_level)" -eq 33 ] && resetprop -v -n ro.product.first_api_level 32
 # [ "$(resetprop -v ro.product.first_api_level)" -ge 34 ] && resetprop -v -n ro.product.first_api_level 34
 
+### System Settings ###
+
+# Fix Restrictions on non-SDK interface and disable developer options
+for global_setting in hidden_api_policy hidden_api_policy_pre_p_apps hidden_api_policy_p_apps; do # adb_enabled development_settings_enabled tether_dun_required
+  settings delete global "$global_setting" >/dev/null 2>&1
+done
+
+# Disable untrusted touches
+for namespace in global system secure; do
+  settings put "$namespace" "block_untrusted_touches" 0 >/dev/null 2>&1
+done
+
 ### File Permissions ###
 
 # Hiding SELinux | Use toybox to protect *stat* access time reading
@@ -164,15 +143,3 @@ set_permissions /proc/cmdline 440
 set_permissions /proc/net/unix 440
 set_permissions /system/addon.d 750
 set_permissions /sdcard/TWRP 750
-
-### System Settings ###
-
-# Fix Restrictions on non-SDK interface and disable developer options
-for global_setting in hidden_api_policy hidden_api_policy_pre_p_apps hidden_api_policy_p_apps; do # adb_enabled development_settings_enabled tether_dun_required
-  settings delete global "$global_setting" >/dev/null 2>&1
-done
-
-# Disable untrusted touches
-for namespace in global system secure; do
-  settings put "$namespace" "block_untrusted_touches" 0 >/dev/null 2>&1
-done
