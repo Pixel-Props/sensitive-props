@@ -49,23 +49,46 @@ check_ksu_version() {
 }
 
 check_zygisksu_version() {
-  if [ -f /data/adb/modules/zygisksu/module.prop ]; then
-  ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/zygisksu/module.prop | sed 's/versionCode=//g')
-  ui_print "- Zygisksu version: $ZYGISKSU_VERSION"
-  fi
-  
-  if [ -f /data/adb/modules/rezygisk/module.prop ]; then
-  ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/rezygisk/module.prop | sed 's/versionCode=//g')
-  ui_print "- Zygisksu (ReZygisk) version: $ZYGISKSU_VERSION"
-  fi
+    # Check for Zygisksu
+    if [ -f /data/adb/modules/zygisksu/module.prop ]; then
+        USES_ZYGISKSU=1
+        ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/zygisksu/module.prop | sed 's/versionCode=//g')
+        ui_print "- Zygisksu version: $ZYGISKSU_VERSION"
+    fi
+    
+    # Check for ReZygisk
+    if [ -f /data/adb/modules/rezygisk/module.prop ]; then
+        USES_REZYGISK=1
+        REZYGISK_VERSION=$(grep versionCode /data/adb/modules/rezygisk/module.prop | sed 's/versionCode=//g')
+        ui_print "- ReZygisk version: $REZYGISK_VERSION"
+    fi
 
-
-  if ! [ "$ZYGISKSU_VERSION" ] || [ "$ZYGISKSU_VERSION" -lt 106 ]; then
-    ui_print "**********************************************"
-    ui_print "! Zygisksu version is too old !"
-    ui_print "! Please update Zygisksu to latest version !"
-    abort "**********************************************"
-  fi
+    # Validate Zygisksu version
+    if [ -n "$USES_ZYGISKSU" ]; then
+        if [ -z "$ZYGISKSU_VERSION" ] || [ "$ZYGISKSU_VERSION" -lt 106 ]; then
+            ui_print "**********************************************"
+            ui_print "! Zygisksu version is too old !"
+            ui_print "! Please update Zygisksu to latest version !"
+            abort "**********************************************"
+        fi
+    fi
+    
+    # Validate ReZygisk version
+    if [ -n "$USES_REZYGISK" ]; then
+        if [ -z "$REZYGISK_VERSION" ] || [ "$REZYGISK_VERSION" -lt 350 ]; then
+            ui_print "**********************************************"
+            ui_print "! ReZygisk version is too old !"
+            ui_print "! Please update ReZygisk to latest version !"
+            abort "**********************************************"
+        fi
+    fi
+    
+    # Check if neither is installed
+    if [[ -z "$USES_ZYGISKSU" ]] && [[ -z "$USES_REZYGISK" ]]; then
+        ui_print "**********************************************"
+        ui_print "! Neither Zygisk nor ReZygisk found !"
+        abort "**********************************************"
+    fi
 }
 
 enforce_install_from_app
