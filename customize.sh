@@ -49,8 +49,16 @@ check_ksu_version() {
 }
 
 check_zygisksu_version() {
+  if [ -f /data/adb/modules/zygisksu/module.prop ]; then
   ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/zygisksu/module.prop | sed 's/versionCode=//g')
   ui_print "- Zygisksu version: $ZYGISKSU_VERSION"
+  fi
+  
+  if [ -f /data/adb/modules/rezygisk/module.prop ]; then
+  ZYGISKSU_VERSION=$(grep versionCode /data/adb/modules/rezygisk/module.prop | sed 's/versionCode=//g')
+  ui_print "- Zygisksu (ReZygisk) version: $ZYGISKSU_VERSION"
+  fi
+
 
   if ! [ "$ZYGISKSU_VERSION" ] || [ "$ZYGISKSU_VERSION" -lt 106 ]; then
     ui_print "**********************************************"
