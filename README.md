@@ -23,7 +23,7 @@ This fork introduces major changes and enhancements, focusing on efficiency, com
 
 * **Enhanced privacy:** Hides SELinux status and sets appropriate file permissions to protect user privacy.
 
-* **Disables restrictions:** Disables developer options and untrusted touches to prevent potential security risks.
+* **Block hidden APIs & untrusted touches:** Disables global Android hidden API access and blocks untrusted touches to reduce attack surface.
 
 * **Undetectable property deletion:** Utilizes a `hexpatch` method for deleting properties, making it undetectable by SafetyNet. This method was necessary due to limitations in the `magiskboot` applet, and despite requests for improvement, the maintainer ([`topjohnwu on issue 8315`](https://github.com/topjohnwu/Magisk/issues/8315)) opted not to introduce a proper fix.
 
