@@ -122,7 +122,7 @@ done
 
 # Disable untrusted touches
 for namespace in global system secure; do
-  settings put "$namespace" "block_untrusted_touches" 0 >/dev/null 2>&1
+  settings put "$namespace" "block_untrusted_touches" 2 >/dev/null 2>&1
 done
 
 ### File Permissions ###
