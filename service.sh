@@ -35,6 +35,7 @@ done &
 # Fix display properties to remove custom ROM references
 replace_value_resetprop ro.build.flavor "lineage_" ""
 replace_value_resetprop ro.build.flavor "userdebug" "user"
+replace_value_resetprop ro.build.display.id "eng." ""
 replace_value_resetprop ro.build.display.id "lineage_" ""
 replace_value_resetprop ro.build.display.id "userdebug" "user"
 replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
