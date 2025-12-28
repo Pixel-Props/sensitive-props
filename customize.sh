@@ -33,7 +33,7 @@ check_ksu_version() {
     ui_print "! KernelSU version is too old !"
     ui_print "! Please update KernelSU to latest version !"
     abort "**********************************************"
-  elif [ "$KSU_KERNEL_VER_CODE" -ge 20000 ]; then
+  elif [ "$KSU_KERNEL_VER_CODE" -ge 40000 ]; then
     ui_print "*****************************************************"
     ui_print "! KernelSU version abnormal !"
     ui_print "! Please integrate KernelSU into your kernel !"
