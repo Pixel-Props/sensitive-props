@@ -50,6 +50,9 @@ for prop in ro.boot.warranty_bit ro.warranty_bit ro.vendor.boot.warranty_bit ro.
   check_resetprop "$prop" 0
 done
 
+# Outdated PlayIntegrity pixelprops fix
+getprop | grep -E "pihook|pixelprops|eliteprops|spoof.gms" | sed -E "s/^\[(.*)\]:.*/\1/" | while IFS= read -r prop; do hexpatch_deleteprop "$prop"; done
+
 ### General adjustments ###
 
 # Process prefixes for build properties
