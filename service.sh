@@ -18,19 +18,15 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 ### Props ###
 
 # Periodically hexpatch delete custom ROM props
-while true; do
-  hexpatch_deleteprop "LSPosed" \
-    "marketname" "custom.device" "modversion" "kernel.qemu" \
-    "lineage" "aospa" "pixelexperience" "evolution" "pixelos" "pixelage" "crdroid" "crDroid" \
-    "aicp" "arter97" "blu_spark" "cyanogenmod" "deathly" "elementalx" "elite" "franco" "hadeskernel" \
-    "morokernel" "noble" "optimus" "slimroms" "sultan" "aokp" "bharos" "calyxos" "calyxOS" "divestos" \
-    "emteria.os" "grapheneos" "indus" "iodéos" "kali" "nethunter" "omnirom" "paranoid" "replicant" \
-    "resurrection" "rising" "remix" "shift" "volla" "icosa" "kirisakura" "infinity" "Infinity"
-  # add more...
-
-  # Wait for 1 hour before the next check.
-  sleep 3600
-done &
+sh $MODPATH/propscleaner.sh & 
+  
+[ ! -f $MODPATH/crontabs/root ] && { 
+        mkdir -p $MODPATH/crontabs 
+        echo "30 * * * * sh $MODPATH/propscleaner.sh > /dev/null 2>&1 &" | busybox crontab -c $MODPATH/crontabs - # once every 60 minutes
+} 
+  
+# Start crond every time service.sh starts 
+[ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
