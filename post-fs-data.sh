@@ -8,15 +8,6 @@ if [ "$(magisk -V)" -lt 26302 ] || { [ -x /data/adb/ksud ] && [ "$(/data/adb/ksu
     touch "$MODPATH/disable"
 fi
 
-# Remove Play Services from Magisk DenyList when set to Enforce in normal mode
-if magisk --denylist status; then
-    magisk --denylist rm com.google.android.gms
-else # Check if Shamiko is installed and whitelist feature isn't enabled
-    if [ -d "/data/adb/modules/zygisk_shamiko" ] && [ ! -f "/data/adb/shamiko/whitelist" ]; then
-        magisk --denylist add com.google.android.gms com.google.android.gms.unstable
-    fi
-fi
-
 # Using util_functions.sh
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
