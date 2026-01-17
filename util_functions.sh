@@ -165,16 +165,6 @@ hexpatch_deleteprop() {
                     fi
                 done
             done
-
-            # Unset the property after patching to ensure the change takes effect
-            resetprop -n --delete "$prop_name"
-            ret=$?
-
-            if [ $ret -eq 0 ]; then
-                echo " ? Successfully unset $prop_name"
-            else
-                echo " ! Failed to unset $prop_name"
-            fi
         done
     done
 }
