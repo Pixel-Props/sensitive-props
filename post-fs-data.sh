@@ -17,23 +17,18 @@ else # Check if Shamiko is installed and whitelist feature isn't enabled
     fi
 fi
 
-# magiskpolicy --live unsafe mrHuskyDG 😡
-# Permission Loophole...
-# Thanks to 7lpb3c for pointing it out ❤️
-
 # Using util_functions.sh
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
-# Set vbmeta verifiedBootHash from file (if present and not empty)
-BOOT_HASH_FILE="/data/adb/boot.hash"
-if [ -s "$BOOT_HASH_FILE" ]; then
-    check_resetprop ro.boot.vbmeta.digest "$(tr '[:upper:]' '[:lower:]' <"$BOOT_HASH_FILE")"
-fi
-
 # Cleanup and replacements (avoiding duplicates with service.sh)
-for prop in $(getprop | grep -E "aosp_|test-keys" | cut -d ":" -f 1 | tr -d '[]'); do
+for prop in $(getprop | grep -E "lineage|aosp_|eng.|dev-keys|test-keys|userdebug" | cut -d ":" -f 1 | tr -d '[]'); do
+    replace_value_resetprop "$prop" "lineageos." ""
+    replace_value_resetprop "$prop" "lineage_" ""
     replace_value_resetprop "$prop" "aosp_" ""
+    replace_value_resetprop "$prop" "eng." ""
+    replace_value_resetprop "$prop" "dev-keys" "release-keys"
     replace_value_resetprop "$prop" "test-keys" "release-keys"
+    replace_value_resetprop "$prop" "userdebug" "user"
 done
 
 # Process prefixes (optimized to avoid redundant checks)

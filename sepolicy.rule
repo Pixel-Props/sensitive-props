@@ -1,0 +1,2 @@
+deny appdomain cgroup_v2 dir search
+deny app_zygote cgroup_v2 dir search

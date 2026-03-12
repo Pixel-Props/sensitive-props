@@ -20,7 +20,7 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 # Periodically hexpatch delete custom ROM props
 while true; do
   hexpatch_deleteprop "LSPosed" \
-    "marketname" "custom.device" "modversion" \
+    "marketname" "custom.device" "modversion" "kernel.qemu" \
     "lineage" "aospa" "pixelexperience" "evolution" "pixelos" "pixelage" "crdroid" "crDroid" "aospa" \
     "aicp" "arter97" "blu_spark" "cyanogenmod" "deathly" "elementalx" "elite" "franco" "hadeskernel" \
     "morokernel" "noble" "optimus" "slimroms" "sultan" "aokp" "bharos" "calyxos" "calyxOS" "divestos" \
@@ -31,16 +31,6 @@ while true; do
   # Wait for 1 hour before the next check.
   sleep 3600
 done &
-
-# Fix display properties to remove custom ROM references
-replace_value_resetprop ro.build.flavor "lineage_" ""
-replace_value_resetprop ro.build.flavor "userdebug" "user"
-replace_value_resetprop ro.build.display.id "eng." ""
-replace_value_resetprop ro.build.display.id "lineage_" ""
-replace_value_resetprop ro.build.display.id "userdebug" "user"
-replace_value_resetprop ro.build.display.id "dev-keys" "release-keys"
-replace_value_resetprop vendor.camera.aux.packagelist "lineageos." ""
-replace_value_resetprop ro.build.version.incremental "eng." ""
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
@@ -71,9 +61,6 @@ for prefix in bootimage odm odm_dlkm oem product system system_ext vendor vendor
   check_resetprop ro.${prefix}.build.type user
   check_resetprop ro.${prefix}.keys release-keys
   check_resetprop ro.${prefix}.build.tags release-keys
-
-  # Remove engineering ROM
-  replace_value_resetprop ro.${prefix}.build.version.incremental "eng." ""
 done
 
 # Maybe reset properties based on conditions (recovery boot mode)
@@ -90,6 +77,10 @@ done
 check_resetprop sys.oem_unlock_allowed 0
 check_resetprop ro.oem_unlock_supported 0
 check_resetprop net.tethering.noprovisioning true
+
+# ADBD/adb_root status spoofing
+check_resetprop init.svc.adbd stopped
+hexpatch_deleteprop init.svc.adb_root
 
 # Init.rc adjustment
 check_resetprop init.svc.flash_recovery stopped
@@ -144,3 +135,35 @@ set_permissions /proc/cmdline 440
 set_permissions /proc/net/unix 440
 set_permissions /system/addon.d 750
 set_permissions /sdcard/TWRP 750
+
+### VBMeta ###
+
+# Set vbmeta verifiedBootHash from file (if present and not empty)
+BOOT_HASH_FILE="/data/adb/boot_hash"
+if [ -s "$BOOT_HASH_FILE" && grep -qE '^[a-f0-9]{64}$' ]; then
+    force_resetprop ro.boot.vbmeta.digest "$(tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' <"$BOOT_HASH_FILE")"
+fi
+
+# Fix altered VBMeta
+missing_resetprop ro.boot.vbmeta.avb_version 1.2
+missing_resetprop ro.boot.vbmeta.hash_alg sha256
+force_resetprop ro.boot.vbmeta.device_state locked
+force_resetprop ro.boot.vbmeta.invalidate_on_error yes
+
+# Dynamic vbmeta_size -- use partition byte size with A/B slot suffix + multi-path fallback
+# Thanks to Enginex0
+slot_suffix=$(getprop ro.boot.slot_suffix 2>/dev/null)
+VBMETA_SIZE=""
+for candidate in \
+    "/dev/block/by-name/vbmeta${slot_suffix}" \
+    "/dev/block/by-name/vbmeta" \
+    "/dev/block/by-name/vbmeta_a" \
+    "/dev/block/by-name/vbmeta_b"; do
+    if [ -b "$candidate" ]; then
+        VBMETA_SIZE=$(blockdev --getsize64 "$candidate" 2>/dev/null)
+        [ -n "$VBMETA_SIZE" ] && [ "$VBMETA_SIZE" -gt 0 ] 2>/dev/null && break
+        VBMETA_SIZE=""
+    fi
+done
+force_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
+

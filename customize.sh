@@ -26,9 +26,26 @@ check_magisk_version() {
 }
 
 check_ksu_version() {
+  # Handle empty variables gracefully
+  KSU_KERNEL_VER_CODE=${KSU_KERNEL_VER_CODE:-0}
+  KSU_VER_CODE=${KSU_VER_CODE:-0}
+  
   ui_print "- KernelSU version: $KSU_KERNEL_VER_CODE (kernel) + $KSU_VER_CODE (ksud)"
 
-  if ! [ "$KSU_KERNEL_VER_CODE" ] || [ "$KSU_KERNEL_VER_CODE" -lt 10940 ]; then
+  # KernelSU Next detection (version 32000+ indicates Next, mainline is ~10000-12000)
+  if [ "$KSU_KERNEL_VER_CODE" -ge 32000 ] && [ "$KSU_KERNEL_VER_CODE" -lt 40000 ]; then
+    ui_print "- Detected KernelSU Next variant"
+    if [ "$KSU_KERNEL_VER_CODE" -lt 32000 ] || [ "$KSU_VER_CODE" -lt 32000 ]; then
+      ui_print "**********************************************"
+      ui_print "! KernelSU Next version is too old !"
+      abort "**********************************************"
+    fi
+    # Skip mainline checks for KernelSU Next
+    return 0
+  fi
+
+  # Mainline KernelSU checks
+  if [ "$KSU_KERNEL_VER_CODE" -lt 10940 ]; then
     ui_print "**********************************************"
     ui_print "! KernelSU version is too old !"
     ui_print "! Please update KernelSU to latest version !"
@@ -40,7 +57,8 @@ check_ksu_version() {
     ui_print "! as submodule instead of copying the source code !"
     abort "*****************************************************"
   fi
-  if ! [ "$KSU_VER_CODE" ] || [ "$KSU_VER_CODE" -lt 10942 ]; then
+  
+  if [ "$KSU_VER_CODE" -lt 10942 ]; then
     ui_print "******************************************************"
     ui_print "! ksud version is too old !"
     ui_print "! Please update KernelSU Manager to latest version !"
@@ -94,7 +112,7 @@ check_zygisksu_version() {
 enforce_install_from_app
 if [ "$KSU" ]; then
   check_ksu_version
-  check_zygisksu_version
+  # check_zygisksu_version
 else
   check_magisk_version
 fi

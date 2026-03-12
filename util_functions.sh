@@ -66,6 +66,16 @@ check_resetprop() { # Reset a property if it exists and doesn't match the desire
     [ ! -z "$VALUE" ] && [ "$VALUE" != "$2" ] && resetprop $(_build_resetprop_args "$1") "$2"
 }
 
+force_resetprop() { # Reset a property if it doesn't match the desired value (create if missing)
+    VALUE="$(resetprop -v "$1")"
+    [ "$VALUE" != "$2" ] && resetprop $(_build_resetprop_args "$1") "$2"
+}
+
+missing_resetprop() { # Reset a property only if it is missing or empty
+    VALUE="$(resetprop -v "$1")"
+    [ -z "$VALUE" ] && resetprop $(_build_resetprop_args "$1") "$2"
+}
+
 maybe_resetprop() { # Reset a property if it exists and matches a pattern
     VALUE="$(resetprop -v "$1")"
     [ ! -z "$VALUE" ] && echo "$VALUE" | grep -q "$2" && resetprop $(_build_resetprop_args "$1") "$3"
