@@ -1,0 +1,5 @@
+# Download resetprop-rs for enhanced stealth hexpatch?
+# true = download during install (default)
+# false = skip, use built-in magiskboot hexpatch
+# Volume keys override this at install time.
+download_resetprop_rs=true
