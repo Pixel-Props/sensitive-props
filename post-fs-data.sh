@@ -4,7 +4,7 @@ MODPATH="${0%/*}"
 MODNAME="${MODPATH##*/}"
 MAGISKTMP="$(magisk --path)" || MAGISKTMP=/sbin
 
-if [ "$(magisk -V)" -lt 26302 ] || [ "$(/data/adb/ksud -V)" -lt 10818 ]; then
+if [ "$(magisk -V)" -lt 26302 ] || { [ -x /data/adb/ksud ] && [ "$(/data/adb/ksud -V)" -lt 10818 ]; }; then
     touch "$MODPATH/disable"
 fi
 

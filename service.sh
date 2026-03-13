@@ -21,7 +21,7 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 while true; do
   hexpatch_deleteprop "LSPosed" \
     "marketname" "custom.device" "modversion" "kernel.qemu" \
-    "lineage" "aospa" "pixelexperience" "evolution" "pixelos" "pixelage" "crdroid" "crDroid" "aospa" \
+    "lineage" "aospa" "pixelexperience" "evolution" "pixelos" "pixelage" "crdroid" "crDroid" \
     "aicp" "arter97" "blu_spark" "cyanogenmod" "deathly" "elementalx" "elite" "franco" "hadeskernel" \
     "morokernel" "noble" "optimus" "slimroms" "sultan" "aokp" "bharos" "calyxos" "calyxOS" "divestos" \
     "emteria.os" "grapheneos" "indus" "iodéos" "kali" "nethunter" "omnirom" "paranoid" "replicant" \
@@ -140,7 +140,7 @@ set_permissions /sdcard/TWRP 750
 
 # Set vbmeta verifiedBootHash from file (if present and not empty)
 BOOT_HASH_FILE="/data/adb/boot_hash"
-if [ -s "$BOOT_HASH_FILE" && grep -qE '^[a-f0-9]{64}$' ]; then
+if [ -s "$BOOT_HASH_FILE" ] && grep -qE '^[a-f0-9]{64}$' "$BOOT_HASH_FILE"; then
     force_resetprop ro.boot.vbmeta.digest "$(tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' <"$BOOT_HASH_FILE")"
 fi
 
