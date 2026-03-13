@@ -18,6 +18,10 @@ is_bool() {
     esac
 }
 
+# Detect resetprop-rs binary
+RESETPROP_RS=""
+[ -x "$MODPATH/resetprop-rs" ] && RESETPROP_RS="$MODPATH/resetprop-rs"
+
 # Function to print a message to the user interface.
 ui_print() { echo "$1"; }
 
@@ -45,6 +49,31 @@ set_permissions() { # Handle permissions without errors
     [ -e "$1" ] && chmod "$2" "$1" &>/dev/null
 }
 
+# resetprop-rs / resetprop routing helpers
+_rp_get() {
+    if [ -n "$RESETPROP_RS" ]; then
+        "$RESETPROP_RS" "$1" 2>/dev/null
+    else
+        resetprop -v "$1"
+    fi
+}
+
+_rp_set() {
+    if [ -n "$RESETPROP_RS" ]; then
+        "$RESETPROP_RS" "$1" "$2"
+    else
+        resetprop $(_build_resetprop_args "$1") "$2"
+    fi
+}
+
+_rp_delete() {
+    if [ -n "$RESETPROP_RS" ]; then
+        "$RESETPROP_RS" -d "$1"
+    else
+        resetprop -n --delete "$1"
+    fi
+}
+
 # Function to construct arguments for resetprop based on prop name
 _build_resetprop_args() {
     prop_name="$1"
@@ -58,40 +87,51 @@ _build_resetprop_args() {
 }
 
 exist_resetprop() { # Reset a property if it exists
-    getprop "$1" | grep -q '.' && resetprop $(_build_resetprop_args "$1") ""
+    _rp_get "$1" | grep -q '.' && _rp_set "$1" ""
 }
 
 check_resetprop() { # Reset a property if it exists and doesn't match the desired value
-    VALUE="$(resetprop -v "$1")"
-    [ ! -z "$VALUE" ] && [ "$VALUE" != "$2" ] && resetprop $(_build_resetprop_args "$1") "$2"
+    VALUE="$(_rp_get "$1")"
+    [ ! -z "$VALUE" ] && [ "$VALUE" != "$2" ] && _rp_set "$1" "$2"
 }
 
 force_resetprop() { # Reset a property if it doesn't match the desired value (create if missing)
-    VALUE="$(resetprop -v "$1")"
-    [ "$VALUE" != "$2" ] && resetprop $(_build_resetprop_args "$1") "$2"
+    VALUE="$(_rp_get "$1")"
+    [ "$VALUE" != "$2" ] && _rp_set "$1" "$2"
 }
 
 missing_resetprop() { # Reset a property only if it is missing or empty
-    VALUE="$(resetprop -v "$1")"
-    [ -z "$VALUE" ] && resetprop $(_build_resetprop_args "$1") "$2"
+    VALUE="$(_rp_get "$1")"
+    [ -z "$VALUE" ] && _rp_set "$1" "$2"
 }
 
 maybe_resetprop() { # Reset a property if it exists and matches a pattern
-    VALUE="$(resetprop -v "$1")"
-    [ ! -z "$VALUE" ] && echo "$VALUE" | grep -q "$2" && resetprop $(_build_resetprop_args "$1") "$3"
+    VALUE="$(_rp_get "$1")"
+    [ ! -z "$VALUE" ] && echo "$VALUE" | grep -q "$2" && _rp_set "$1" "$3"
 }
 
 replace_value_resetprop() { # Replace a substring in a property's value
-    VALUE="$(resetprop -v "$1")"
+    VALUE="$(_rp_get "$1")"
     [ -z "$VALUE" ] && return
     VALUE_NEW="$(echo -n "$VALUE" | sed "s|${2}|${3}|g")"
-    [ "$VALUE" == "$VALUE_NEW" ] || resetprop $(_build_resetprop_args "$1") "$VALUE_NEW"
+    [ "$VALUE" == "$VALUE_NEW" ] || _rp_set "$1" "$VALUE_NEW"
 }
 
 # This function aims to delete or obfuscate specific strings within Android system properties,
 # by replacing them with random hexadecimal values which should match with the original string length.
 hexpatch_deleteprop() {
-    # Path to magiskboot (determine it once, at the beginning)
+    # resetprop-rs fast path: stealth delete via dictionary word replacement
+    if [ -n "$RESETPROP_RS" ]; then
+        for search_string in "$@"; do
+            getprop | cut -d'[' -f2 | cut -d']' -f1 | grep "$search_string" | while read prop_name; do
+                "$RESETPROP_RS" --hexpatch-delete "$prop_name" 2>/dev/null && \
+                    echo " ? Stealth-deleted $prop_name"
+            done
+        done
+        return
+    fi
+
+    # Original magiskboot hexpatch path (fallback)
     magiskboot_path=$(which magiskboot 2>/dev/null || find /data/adb /data/data/me.bmax.apatch/patch/ -name magiskboot -print -quit 2>/dev/null)
     [ -z "$magiskboot_path" ] && abort "magiskboot not found" false
 
@@ -101,7 +141,8 @@ hexpatch_deleteprop() {
         search_hex=$(echo -n "$search_string" | xxd -p | tr '[:lower:]' '[:upper:]')
 
         # Generate a random LOWERCASE alphanumeric string of the required length, using only 0-9 and a-f
-        replacement_string=$(cat /dev/urandom | tr -dc '0-9a-f' | head -c ${#search_string})
+        search_len=$(printf '%s' "$search_string" | wc -c)
+        replacement_string=$(cat /dev/urandom | tr -dc '0-9a-f' | head -c "$search_len")
 
         # Convert the replacement string to hex and ensure it's in uppercase
         replacement_hex=$(echo -n "$replacement_string" | xxd -p | tr '[:lower:]' '[:upper:]')
