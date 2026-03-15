@@ -164,5 +164,5 @@ for candidate in \
         VBMETA_SIZE=""
     fi
 done
-force_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
+missing_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
 
