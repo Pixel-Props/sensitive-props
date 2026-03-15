@@ -17,16 +17,56 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Periodically hexpatch delete custom ROM props
-sh $MODPATH/propscleaner.sh & 
-  
-[ ! -f $MODPATH/crontabs/root ] && { 
-        mkdir -p $MODPATH/crontabs 
-        echo "30 * * * * sh $MODPATH/propscleaner.sh > /dev/null 2>&1 &" | busybox crontab -c $MODPATH/crontabs - # once every 60 minutes
-} 
-  
-# Start crond every time service.sh starts 
-[ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
+# Periodically hexpatch delete custom ROM props — respect toggle
+_cron_disabled=0
+
+# "Always Disable" flag (persistent file)
+[ -f "$MODPATH/disable_cron" ] && _cron_disabled=1
+
+# "Disable until Reboot" flag (temp file, removed on next boot check)
+if [ -f "$MODPATH/disable_cron_temp" ]; then
+  _cron_disabled=1
+  rm -f "$MODPATH/disable_cron_temp"
+fi
+
+# config.prop fallback
+if ! boolval "$_cron_disabled"; then
+  _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
+  if ! boolval "$_cron_cfg"; then
+    _cron_disabled=1
+  fi
+fi
+
+# Backup before any edits
+[ -f "$PROP_FILE" ] && cp -f "$PROP_FILE" "$PROP_BAK"
+
+if ! boolval "$_cron_disabled"; then
+  sh $MODPATH/propscleaner.sh &
+
+  [ ! -f $MODPATH/crontabs/root ] && {
+    mkdir -p $MODPATH/crontabs
+    echo "30 * * * * sh $MODPATH/propscleaner.sh > /dev/null 2>&1 &" | busybox crontab -c $MODPATH/crontabs - # once every 60 minutes
+  }
+
+  # Start crond every time service.sh starts
+  [ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
+
+  # Update module description to reflect enabled status
+  set_description "[✅ Custom ROM spoofing enabled]"
+else
+  # Stop crond and remove crontab if disabled
+  busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
+  rm -rf "$MODPATH/crontabs"
+
+  # Update module description to reflect disabled status
+  if [ -f "$MODPATH/disable_cron" ]; then
+    set_description "[❌ Custom ROM spoofing disabled]"
+  else
+    set_description "[⏸️ Custom ROM spoofing disabled until Reboot]"
+  fi
+fi
+
+restore_prop_if_needed
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
