@@ -22,30 +22,8 @@ is_bool() {
 RESETPROP_RS=""
 [ -x "$MODPATH/resetprop-rs" ] && RESETPROP_RS="$MODPATH/resetprop-rs"
 
-# Function to print a message to the user interface.
-ui_print() { echo "$1"; }
-
-# Function to abort the script with an error message.
-abort() {
-    message="$1"
-    remove_module="${2:-true}"
-
-    ui_print " [!] $message"
-
-    # Remove module on next reboot if requested
-    if boolval "$remove_module"; then
-        touch "$MODPATH/remove"
-        ui_print " ! The module will be removed on next reboot !"
-        ui_print ""
-        sleep 5
-        exit 1
-    fi
-
-    sleep 5
-    return 1
-}
-
-set_permissions() { # Handle permissions without errors
+# Handle permissions without errors
+set_permissions() {
     [ -e "$1" ] && chmod "$2" "$1" &>/dev/null
 }
 
@@ -208,4 +186,58 @@ hexpatch_replaceprop() {
             done
         done
     done
+}
+
+# Volume-key helper — waits up to $1 seconds for a vol key press
+# Sets VOL_RESULT to: "up", "down", or "timeout"
+vol_key_wait() {
+  _timeout="${1:-15}"
+  _tmp="$MODPATH/.vol_key_tmp"
+
+  VOL_RESULT="timeout"
+  : > "$_tmp"
+  getevent -qlc 1 > "$_tmp" 2>/dev/null &
+  _ge_pid=$!
+
+  while [ "$_timeout" -gt 0 ]; do
+    sleep 1
+    if ! kill -0 "$_ge_pid" 2>/dev/null; then
+      if grep -q 'DOWN' "$_tmp" 2>/dev/null; then
+        if grep -q 'KEY_VOLUMEUP' "$_tmp" 2>/dev/null; then
+          VOL_RESULT="up"; break
+        elif grep -q 'KEY_VOLUMEDOWN' "$_tmp" 2>/dev/null; then
+          VOL_RESULT="down"; break
+        fi
+      fi
+      : > "$_tmp"
+      getevent -qlc 1 > "$_tmp" 2>/dev/null &
+      _ge_pid=$!
+    fi
+    _timeout=$((_timeout - 1))
+  done
+
+  kill "$_ge_pid" 2>/dev/null
+  wait "$_ge_pid" 2>/dev/null
+  rm -f "$_tmp"
+}
+
+# module.prop edit helpers - thanks to KPatch-Next
+PROP_FILE="$MODPATH/module.prop"
+PROP_BAK="$PROP_FILE.bak"
+ORIG_DESC=$(grep '^description=' "$PROP_BAK" 2>/dev/null | cut -d= -f2-)
+
+set_description() {
+  NEW_DESC="$1 $ORIG_DESC"
+  if ! grep -q "^description=" "$PROP_FILE"; then
+    echo "description=$NEW_DESC" >> "$PROP_FILE"
+    return
+  fi
+  sed "s|^description=.*|description=$NEW_DESC|" "$PROP_FILE" > "$PROP_FILE.tmp"
+  cat "$PROP_FILE.tmp" > "$PROP_FILE"
+  rm -f "$PROP_FILE.tmp"
+}
+
+restore_desc_if_needed() {
+  grep -q "^id=" "$PROP_FILE" && return
+  [ -f "$PROP_BAK" ] && cat "$PROP_BAK" > "$PROP_FILE"
 }

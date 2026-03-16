@@ -17,16 +17,62 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Periodically hexpatch delete custom ROM props
-sh $MODPATH/propscleaner.sh & 
-  
-[ ! -f $MODPATH/crontabs/root ] && { 
-        mkdir -p $MODPATH/crontabs 
-        echo "30 * * * * sh $MODPATH/propscleaner.sh > /dev/null 2>&1 &" | busybox crontab -c $MODPATH/crontabs - # once every 60 minutes
-} 
-  
-# Start crond every time service.sh starts 
-[ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
+# Check cron status
+if [ -f "$MODPATH/disable_cron" ]; then
+  # "Always Disable" flag
+  _cron_disabled=1
+elif [ -f "$MODPATH/disable_cron_temp" ]; then
+  # "Disable until Reboot" flag (tmp file)
+  rm -f "$MODPATH/disable_cron_temp"
+  _cron_disabled=0
+else
+  # config.prop fallback
+  _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
+  if boolval "$_cron_cfg"; then
+    _cron_disabled=0
+  else
+    _cron_disabled=1
+  fi
+fi
+
+if ! boolval "$_cron_disabled"; then
+  sh $MODPATH/propscleaner.sh &
+
+  [ ! -f $MODPATH/crontabs/root ] && {
+    mkdir -p $MODPATH/crontabs
+    echo "30 * * * * sh $MODPATH/propscleaner.sh > /dev/null 2>&1 &" | busybox crontab -c $MODPATH/crontabs - # once every 60 minutes
+  }
+
+  # Start crond every time service.sh starts
+  [ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
+
+  _cron_tag="[✅ Custom ROM spoofing,"
+else
+  # Stop crond and remove crontab if disabled
+  busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
+  rm -rf "$MODPATH/crontabs"
+  # "Disable until Reboot" flag can't exist at this point
+  _cron_tag="[❌ Custom ROM spoofing,"
+fi
+
+# Check if resetprop-rs is installed
+_rs_cfg=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
+
+if [ -x "$MODPATH/resetprop-rs" ] && boolval "$_rs_cfg"; then
+  _rs_tag="✅ resetprop-rs]"
+elif [ ! -x "$MODPATH/resetprop-rs" ] && ! boolval "$_rs_cfg"; then
+  _rs_tag="❌ resetprop-rs]"
+else
+  # If something is broken delete the bin and set to false
+  rm -f "$MODPATH/resetprop-rs"
+  _rs_tag="❌ resetprop-rs]"
+
+  sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=false|" "$MODPATH/config.prop"
+fi
+
+# Update module description to reflect current status
+set_description "$_cron_tag $_rs_tag"
+restore_desc_if_needed
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1
@@ -165,4 +211,3 @@ for candidate in \
     fi
 done
 missing_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
-

@@ -3,3 +3,9 @@
 # false = skip, use built-in magiskboot hexpatch
 # Volume keys override this at install time.
 download_resetprop_rs=true
+
+# Enable periodic propscleaner cron job?
+# true = enabled (default)
+# false = always disabled
+# Volume keys override this at install time.
+propscleaner_cron=true

@@ -128,6 +128,47 @@ if [ "$API" -lt 29 ]; then
   abort "! Only support Android 10+ devices"
 fi
 
+# Using util_functions.sh
+[ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
+
+# Backup original module.prop for status updates
+[ -f "$PROP_FILE" ] && cp -f "$PROP_FILE" "$PROP_BAK"
+
+# Optional Custom ROM hexpatching
+_cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
+
+ui_print ""
+ui_print "- Enable periodic Custom ROMs props spoofing?"
+ui_print "  Vol+ = Enable | Vol- = Disable (15s timeout)"
+
+vol_key_wait 15
+
+CRON_ENABLED=""
+case "$VOL_RESULT" in
+  up)   CRON_ENABLED=true ;;
+  down) CRON_ENABLED=false ;;
+esac
+
+# Timeout — fall back to config.prop
+if [ -z "$CRON_ENABLED" ]; then
+  if boolval "$_cron_cfg"; then
+    CRON_ENABLED=true
+  else
+    CRON_ENABLED=false
+  fi
+fi
+
+if boolval "$CRON_ENABLED"; then
+  rm -f "$MODPATH/disable_cron" "$MODPATH/disable_cron_temp"
+  ui_print "- Custom ROM spoofing enabled"
+else
+  touch "$MODPATH/disable_cron"
+  ui_print "- Custom ROM spoofing disabled"
+fi
+
+# Override config.prop
+sed -i "s|^propscleaner_cron=.*|propscleaner_cron=$CRON_ENABLED|" "$MODPATH/config.prop"
+
 # Optional resetprop-rs download
 RESETPROP_RS_URL="https://github.com/Enginex0/resetprop-rs/releases/latest/download"
 case "$ARCH" in
@@ -137,77 +178,63 @@ case "$ARCH" in
 esac
 
 if [ -n "$RESETPROP_RS_ASSET" ]; then
-  # Read config.prop preference
-  _cfg_val=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
+  # Read config.prop default value
+  _rs_cfg=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
 
+  ui_print ""
   ui_print "- Download resetprop-rs for enhanced stealth hexpatch?"
   ui_print "  Vol+ = Download | Vol- = Skip (15s timeout)"
 
-  _vol_tmp="$TMPDIR/vol_key"
-  _vol_sec=15
-  : > "$_vol_tmp"
-  getevent -qlc 1 > "$_vol_tmp" 2>/dev/null &
-  _ge_pid=$!
+  vol_key_wait 15
 
   DO_DOWNLOAD=""
-  while [ "$_vol_sec" -gt 0 ]; do
-    sleep 1
-    if ! kill -0 "$_ge_pid" 2>/dev/null; then
-      _key=$(awk '/KEY_/{print $3}' "$_vol_tmp" 2>/dev/null)
-      case "$_key" in
-        KEY_VOLUMEUP)   DO_DOWNLOAD=true; break ;;
-        KEY_VOLUMEDOWN) DO_DOWNLOAD=false; break ;;
-      esac
-      : > "$_vol_tmp"
-      getevent -qlc 1 > "$_vol_tmp" 2>/dev/null &
-      _ge_pid=$!
-    fi
-    _vol_sec=$((_vol_sec - 1))
-  done
-
-  kill "$_ge_pid" 2>/dev/null
-  wait "$_ge_pid" 2>/dev/null
-  rm -f "$_vol_tmp"
+  case "$VOL_RESULT" in
+    up)   DO_DOWNLOAD=true ;;
+    down) DO_DOWNLOAD=false ;;
+  esac
 
   # Timeout — fall back to config.prop
   if [ -z "$DO_DOWNLOAD" ]; then
-    case "$_cfg_val" in
-      false|0|off) DO_DOWNLOAD=false ;;
-      *)           DO_DOWNLOAD=true ;;
-    esac
+    if boolval "$_rs_cfg"; then
+      DO_DOWNLOAD=true
+    else
+      DO_DOWNLOAD=false
+    fi
   fi
 
-  if [ "$DO_DOWNLOAD" = true ]; then
+  if boolval "$DO_DOWNLOAD"; then
     ui_print "- Downloading resetprop-rs ($RESETPROP_RS_ASSET)..."
-    _dl_ok=false
-    if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
+    if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null || \
+       curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
       _dl_ok=true
-    elif curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
-      _dl_ok=true
+    else
+      _dl_ok=false
     fi
 
-    if [ "$_dl_ok" = true ]; then
+    if boolval "$_dl_ok"; then
       chmod 755 "$MODPATH/resetprop-rs"
       if "$MODPATH/resetprop-rs" -h >/dev/null 2>&1; then
         ui_print "- resetprop-rs installed successfully"
       else
         ui_print "! resetprop-rs binary failed smoke test, removing"
         rm -f "$MODPATH/resetprop-rs"
+        DO_DOWNLOAD=false
       fi
     else
       ui_print "! Download failed, falling back to built-in hexpatch"
       rm -f "$MODPATH/resetprop-rs"
+      DO_DOWNLOAD=false
     fi
   else
     ui_print "- Skipping resetprop-rs, using built-in hexpatch"
   fi
+
+  # Override config.prop
+  sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=$DO_DOWNLOAD|" "$MODPATH/config.prop"
 fi
 
 # Set Module permissions
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 [ -f "$MODPATH/resetprop-rs" ] && chmod 755 "$MODPATH/resetprop-rs"
-
-# Running the service early using busybox
-[ -f "$MODPATH/service.sh" ] && busybox sh "$MODPATH/service.sh" 2>&1
 
 ui_print "? Please uninstall this module before dirty-flashing/updating the ROM."
