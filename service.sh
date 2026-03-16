@@ -17,22 +17,20 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Periodically hexpatch delete custom ROM props
-_cron_disabled=0
-
-# "Always Disable" flag
-[ -f "$MODPATH/disable_cron" ] && _cron_disabled=1
-
-# "Disable until Reboot" flag (tmp file)
-if [ -f "$MODPATH/disable_cron_temp" ]; then
+# Check cron status
+if [ -f "$MODPATH/disable_cron" ]; then
+  # "Always Disable" flag
   _cron_disabled=1
+elif [ -f "$MODPATH/disable_cron_temp" ]; then
+  # "Disable until Reboot" flag (tmp file)
   rm -f "$MODPATH/disable_cron_temp"
-fi
-
-# config.prop fallback
-if ! boolval "$_cron_disabled"; then
+  _cron_disabled=0
+else
+  # config.prop fallback
   _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
-  if ! boolval "$_cron_cfg"; then
+  if boolval "$_cron_cfg"; then
+    _cron_disabled=0
+  else
     _cron_disabled=1
   fi
 fi
