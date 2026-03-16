@@ -17,18 +17,17 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Periodically hexpatch delete custom ROM props
+# Periodically hexpatch delete custom ROM props (read targets from file)
+TARGETS_FILE="$MODPATH/hexpatch_targets.list"
 while true; do
-  hexpatch_deleteprop "LSPosed" \
-    "marketname" "custom.device" "modversion" "kernel.qemu" \
-    "lineage" "aospa" "pixelexperience" "evolution" "pixelos" "pixelage" "crdroid" "crDroid" "aospa" \
-    "aicp" "arter97" "blu_spark" "cyanogenmod" "deathly" "elementalx" "elite" "franco" "hadeskernel" \
-    "morokernel" "noble" "optimus" "slimroms" "sultan" "aokp" "bharos" "calyxos" "calyxOS" "divestos" \
-    "emteria.os" "grapheneos" "indus" "iodéos" "kali" "nethunter" "omnirom" "paranoid" "replicant" \
-    "resurrection" "rising" "remix" "shift" "volla" "icosa" "kirisakura" "infinity" "Infinity"
-  # add more...
-
-  # Wait for 1 hour before the next check.
+  if [ -f "$TARGETS_FILE" ]; then
+    set --
+    while IFS= read -r line; do
+      line=$(echo "$line" | sed 's/#.*//' | tr -d '[:space:]')
+      [ -n "$line" ] && set -- "$@" "$line"
+    done < "$TARGETS_FILE"
+    [ $# -gt 0 ] && hexpatch_deleteprop "$@"
+  fi
   sleep 3600
 done &
 
@@ -138,10 +137,10 @@ set_permissions /sdcard/TWRP 750
 
 ### VBMeta ###
 
-# Set vbmeta verifiedBootHash from file (if present and not empty)
+# Restore vbmeta digest captured by post-fs-data
 BOOT_HASH_FILE="/data/adb/boot_hash"
-if [ -s "$BOOT_HASH_FILE" && grep -qE '^[a-f0-9]{64}$' ]; then
-    force_resetprop ro.boot.vbmeta.digest "$(tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' <"$BOOT_HASH_FILE")"
+if [ -s "$BOOT_HASH_FILE" ] && grep -qE '^[a-f0-9]{64}$' "$BOOT_HASH_FILE"; then
+    force_resetprop ro.boot.vbmeta.digest "$(tr -d '[:space:]' < "$BOOT_HASH_FILE")"
 fi
 
 # Fix altered VBMeta
