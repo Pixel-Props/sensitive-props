@@ -13,14 +13,15 @@ type ui_print >/dev/null 2>&1 || ui_print() { echo "$@"; }
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || { ui_print "! util_functions.sh not found!"; exit 1; }
 
 # Determine current cron status
-get_current_status() {
+get_cron_status() {
   if [ -f "$MODPATH/disable_cron" ]; then
     echo "Always Disabled"
   elif [ -f "$MODPATH/disable_cron_temp" ]; then
     echo "Disabled until Reboot"
   else
-    _cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
-    if boolval "$_cfg"; then
+    # config.prop fallback
+    _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
+    if boolval "$_cron_cfg"; then
       echo "Enabled"
     else
       echo "Always Disabled"
@@ -29,14 +30,15 @@ get_current_status() {
 }
 
 update_description() {
-  _cron_status=$(get_current_status)
+  _cron_status=$(get_cron_status)
   case "$_cron_status" in
     "Enabled")              _cron_tag="[✅ Custom ROM spoofing," ;;
     "Disabled until Reboot") _cron_tag="[⏸️ Custom ROM spoofing," ;;
     *)                      _cron_tag="[❌ Custom ROM spoofing," ;;
   esac
 
-  if [ -x "$MODPATH/resetprop-rs" ]; then
+  _rs_cfg=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
+  if boolval "$_rs_cfg"; then
     _rs_tag="✅ resetprop-rs]"
   else
     _rs_tag="❌ resetprop-rs]"
@@ -48,15 +50,15 @@ update_description() {
 
 # Detect device architecture for resetprop-rs
 RESETPROP_RS_URL="https://github.com/Enginex0/resetprop-rs/releases/latest/download"
-_machine=$(uname -m 2>/dev/null)
-case "$_machine" in
+_arch=$(uname -m 2>/dev/null)
+case "$_arch" in
   aarch64*) RESETPROP_RS_ASSET="resetprop-arm64-v8a" ;;
   armv7*|armv8l) RESETPROP_RS_ASSET="resetprop-armeabi-v7a" ;;
   *)        RESETPROP_RS_ASSET="" ;;
 esac
 
 # Crontabs config
-CURRENT=$(get_current_status)
+CURRENT=$(get_cron_status)
 
 ui_print ""
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -77,12 +79,8 @@ if [ "$VOL_RESULT" = "up" ]; then
   # Enable
   rm -f "$MODPATH/disable_cron" "$MODPATH/disable_cron_temp"
 
-  # Persist to config.prop
-  if grep -q '^propscleaner_cron=' "$MODPATH/config.prop" 2>/dev/null; then
-    sed -i "s|^propscleaner_cron=.*|propscleaner_cron=true|" "$MODPATH/config.prop"
-  else
-    echo "propscleaner_cron=true" >> "$MODPATH/config.prop"
-  fi
+  # Override config.prop
+  sed -i "s|^propscleaner_cron=.*|propscleaner_cron=true|" "$MODPATH/config.prop"
 
   # Start immediately
   sh "$MODPATH/propscleaner.sh" &
@@ -108,31 +106,40 @@ elif [ "$VOL_RESULT" = "down" ]; then
 
   vol_key_wait 15
 
-  # Stop crond and remove crontab
-  busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
-  rm -rf "$MODPATH/crontabs"
+    # Stop crond and remove crontab
+    busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
+    rm -rf "$MODPATH/crontabs"
 
   if [ "$VOL_RESULT" = "up" ]; then
     # Disable until Reboot
-    rm -f "$MODPATH/disable_cron"
+    if [ "$CURRENT" == "Always Disabled" ]; then
+      rm -f "$MODPATH/disable_cron"
+    fi
     touch "$MODPATH/disable_cron_temp"
+
+    # Override config.prop
+    sed -i "s|^propscleaner_cron=.*|propscleaner_cron=true|" "$MODPATH/config.prop"
 
     ui_print "  ⏸️ Custom ROM spoofing DISABLED until Reboot"
     ui_print ""
 
-  else
+  elif [ "$VOL_RESULT" = "down" ]; then
     # Always Disable
-    rm -f "$MODPATH/disable_cron_temp"
+    if [ "$CURRENT" == "Disabled until Reboot" ]; then
+      rm -f "$MODPATH/disable_cron_temp"
+    fi
     touch "$MODPATH/disable_cron"
 
-    # Persist to config.prop
-    if grep -q '^propscleaner_cron=' "$MODPATH/config.prop" 2>/dev/null; then
-      sed -i "s|^propscleaner_cron=.*|propscleaner_cron=false|" "$MODPATH/config.prop"
-    else
-      echo "propscleaner_cron=false" >> "$MODPATH/config.prop"
-    fi
+    # Override config.prop
+    sed -i "s|^propscleaner_cron=.*|propscleaner_cron=false|" "$MODPATH/config.prop"
 
     ui_print "  ❌ Custom ROM spoofing ALWAYS DISABLED"
+    ui_print ""
+
+  else
+    # Timeout
+    ui_print "  No input received. No changes made."
+    ui_print "  Current status remains: $CURRENT"
     ui_print ""
   fi
 
@@ -148,7 +155,7 @@ ui_print ""
 
 # resetprop-rs config
 if [ -n "$RESETPROP_RS_ASSET" ]; then
-  if [ -x "$MODPATH/resetprop-rs" ]; then
+  if boolval "$_rs_cfg"; then
     _rs_status="Installed"
   else
     _rs_status="Not installed"
@@ -178,54 +185,66 @@ if [ -n "$RESETPROP_RS_ASSET" ]; then
     # Currently installed
     if [ "$VOL_RESULT" = "down" ]; then
       rm -f "$MODPATH/resetprop-rs"
-      # Persist preference
-      if grep -q '^download_resetprop_rs=' "$MODPATH/config.prop" 2>/dev/null; then
-        sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=false|" "$MODPATH/config.prop"
-      else
-        echo "download_resetprop_rs=false" >> "$MODPATH/config.prop"
-      fi
+
+      # Override config.prop
+      sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=false|" "$MODPATH/config.prop"
+
       ui_print "  🗑️ resetprop-rs REMOVED"
       ui_print ""
-    else
+
+    elif [ "$VOL_RESULT" = "up" ]; then
       ui_print "  resetprop-rs kept."
       ui_print ""
+
+    else
+      # Timeout
+      ui_print "  No input received. No changes made."
+      ui_print "  Current status remains: $_rs_status"
+      ui_print ""
     fi
+
   else
     # Not installed
     if [ "$VOL_RESULT" = "up" ]; then
       ui_print "  Downloading resetprop-rs ($RESETPROP_RS_ASSET)..."
-      _dl_ok=false
-      if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
+      if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null || \
+         curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
         _dl_ok=true
-      elif curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
-        _dl_ok=true
+      else
+        _dl_ok=false
       fi
 
       if boolval "$_dl_ok"; then
         chmod 755 "$MODPATH/resetprop-rs"
         if "$MODPATH/resetprop-rs" -h >/dev/null 2>&1; then
-          # Persist preference
-          if grep -q '^download_resetprop_rs=' "$MODPATH/config.prop" 2>/dev/null; then
-            sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=true|" "$MODPATH/config.prop"
-          else
-            echo "download_resetprop_rs=true" >> "$MODPATH/config.prop"
-          fi
           ui_print "  ✅ resetprop-rs installed successfully"
           ui_print ""
         else
-          ui_print "  ! resetprop-rs binary failed smoke test, removing"
           rm -f "$MODPATH/resetprop-rs"
+          ui_print "  ! resetprop-rs binary failed smoke test, removing"
           ui_print ""
+          _dl_ok=false
         fi
       else
-        ui_print "  ! Download failed"
         rm -f "$MODPATH/resetprop-rs"
+        ui_print "  ! Download failed"
         ui_print ""
       fi
-    else
+
+    elif [ "$VOL_RESULT" = "down" ]; then
       ui_print "  Skipped resetprop-rs."
       ui_print ""
+      _dl_ok=false
+
+    else
+      # Timeout
+      ui_print "  No input received. No changes made."
+      ui_print "  Current status remains: $_rs_status"
+      ui_print ""
     fi
+
+    # Override config.prop
+    sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=$_dl_ok|" "$MODPATH/config.prop"
   fi
 
   ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

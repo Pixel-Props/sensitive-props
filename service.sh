@@ -51,19 +51,23 @@ else
   # Stop crond and remove crontab if disabled
   busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
   rm -rf "$MODPATH/crontabs"
-
-  if [ -f "$MODPATH/disable_cron" ]; then
-    _cron_tag="[❌ Custom ROM spoofing,"
-  else
-    _cron_tag="[⏸️ Custom ROM spoofing,"
-  fi
+  # "Disable until Reboot" flag can't exist at this point
+  _cron_tag="[❌ Custom ROM spoofing,"
 fi
 
 # Check if resetprop-rs is installed
-if [ -x "$MODPATH/resetprop-rs" ]; then
+_rs_cfg=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
+
+if [ -x "$MODPATH/resetprop-rs" ] && boolval "$_rs_cfg"; then
   _rs_tag="✅ resetprop-rs]"
-else
+elif [ ! -x "$MODPATH/resetprop-rs" ] && ! boolval "$_rs_cfg"; then
   _rs_tag="❌ resetprop-rs]"
+else
+  # If something is broken delete the bin and set to false
+  rm -f "$MODPATH/resetprop-rs"
+  _rs_tag="❌ resetprop-rs]"
+
+  sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=false|" "$MODPATH/config.prop"
 fi
 
 # Update module description to reflect current status
@@ -207,4 +211,3 @@ for candidate in \
     fi
 done
 missing_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
-

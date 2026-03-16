@@ -134,7 +134,7 @@ fi
 # Backup original module.prop for status updates
 [ -f "$PROP_FILE" ] && cp -f "$PROP_FILE" "$PROP_BAK"
 
-# Periodic propscleaner cron toggle
+# Optional Custom ROM hexpatching
 _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
 
 ui_print ""
@@ -159,23 +159,15 @@ if [ -z "$CRON_ENABLED" ]; then
 fi
 
 if boolval "$CRON_ENABLED"; then
+  rm -f "$MODPATH/disable_cron" "$MODPATH/disable_cron_temp"
   ui_print "- Custom ROM spoofing enabled"
 else
+  touch "$MODPATH/disable_cron"
   ui_print "- Custom ROM spoofing disabled"
 fi
 
-# Persist into config.prop and manage flag file
-if grep -q '^propscleaner_cron=' "$MODPATH/config.prop" 2>/dev/null; then
-  sed -i "s|^propscleaner_cron=.*|propscleaner_cron=$CRON_ENABLED|" "$MODPATH/config.prop"
-else
-  echo "propscleaner_cron=$CRON_ENABLED" >> "$MODPATH/config.prop"
-fi
-
-if boolval "$CRON_ENABLED"; then
-  rm -f "$MODPATH/disable_cron" "$MODPATH/disable_cron_temp"
-else
-  touch "$MODPATH/disable_cron"
-fi
+# Override config.prop
+sed -i "s|^propscleaner_cron=.*|propscleaner_cron=$CRON_ENABLED|" "$MODPATH/config.prop"
 
 # Optional resetprop-rs download
 RESETPROP_RS_URL="https://github.com/Enginex0/resetprop-rs/releases/latest/download"
@@ -186,8 +178,8 @@ case "$ARCH" in
 esac
 
 if [ -n "$RESETPROP_RS_ASSET" ]; then
-  # Read config.prop preference
-  _cfg_val=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
+  # Read config.prop default value
+  _rs_cfg=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
 
   ui_print ""
   ui_print "- Download resetprop-rs for enhanced stealth hexpatch?"
@@ -203,7 +195,7 @@ if [ -n "$RESETPROP_RS_ASSET" ]; then
 
   # Timeout — fall back to config.prop
   if [ -z "$DO_DOWNLOAD" ]; then
-    if boolval "$_cfg_val"; then
+    if boolval "$_rs_cfg"; then
       DO_DOWNLOAD=true
     else
       DO_DOWNLOAD=false
@@ -212,11 +204,11 @@ if [ -n "$RESETPROP_RS_ASSET" ]; then
 
   if boolval "$DO_DOWNLOAD"; then
     ui_print "- Downloading resetprop-rs ($RESETPROP_RS_ASSET)..."
-    _dl_ok=false
-    if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
+    if wget -qO "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null || \
+       curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
       _dl_ok=true
-    elif curl -sLo "$MODPATH/resetprop-rs" "$RESETPROP_RS_URL/$RESETPROP_RS_ASSET" 2>/dev/null; then
-      _dl_ok=true
+    else
+      _dl_ok=false
     fi
 
     if boolval "$_dl_ok"; then
@@ -226,14 +218,19 @@ if [ -n "$RESETPROP_RS_ASSET" ]; then
       else
         ui_print "! resetprop-rs binary failed smoke test, removing"
         rm -f "$MODPATH/resetprop-rs"
+        DO_DOWNLOAD=false
       fi
     else
       ui_print "! Download failed, falling back to built-in hexpatch"
       rm -f "$MODPATH/resetprop-rs"
+      DO_DOWNLOAD=false
     fi
   else
     ui_print "- Skipping resetprop-rs, using built-in hexpatch"
   fi
+
+  # Override config.prop
+  sed -i "s|^download_resetprop_rs=.*|download_resetprop_rs=$DO_DOWNLOAD|" "$MODPATH/config.prop"
 fi
 
 # Set Module permissions
