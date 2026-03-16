@@ -17,13 +17,13 @@ until [ -d "/sdcard/Android" ]; do sleep 3; done
 
 ### Props ###
 
-# Periodically hexpatch delete custom ROM props — respect toggle
+# Periodically hexpatch delete custom ROM props
 _cron_disabled=0
 
-# "Always Disable" flag (persistent file)
+# "Always Disable" flag
 [ -f "$MODPATH/disable_cron" ] && _cron_disabled=1
 
-# "Disable until Reboot" flag (temp file, removed on next boot check)
+# "Disable until Reboot" flag (tmp file)
 if [ -f "$MODPATH/disable_cron_temp" ]; then
   _cron_disabled=1
   rm -f "$MODPATH/disable_cron_temp"
@@ -37,9 +37,6 @@ if ! boolval "$_cron_disabled"; then
   fi
 fi
 
-# Backup before any edits
-[ -f "$PROP_FILE" ] && cp -f "$PROP_FILE" "$PROP_BAK"
-
 if ! boolval "$_cron_disabled"; then
   sh $MODPATH/propscleaner.sh &
 
@@ -51,22 +48,29 @@ if ! boolval "$_cron_disabled"; then
   # Start crond every time service.sh starts
   [ -d $MODPATH/crontabs ] && busybox crond -bc $MODPATH/crontabs -L /dev/null > /dev/null 2>&1 &
 
-  # Update module description to reflect enabled status
-  set_description "[✅ Custom ROM spoofing enabled]"
+  _cron_tag="[✅ Custom ROM spoofing,"
 else
   # Stop crond and remove crontab if disabled
   busybox pkill -f "crond -bc $MODPATH/crontabs" 2>/dev/null
   rm -rf "$MODPATH/crontabs"
 
-  # Update module description to reflect disabled status
   if [ -f "$MODPATH/disable_cron" ]; then
-    set_description "[❌ Custom ROM spoofing disabled]"
+    _cron_tag="[❌ Custom ROM spoofing,"
   else
-    set_description "[⏸️ Custom ROM spoofing disabled until Reboot]"
+    _cron_tag="[⏸️ Custom ROM spoofing,"
   fi
 fi
 
-restore_prop_if_needed
+# Check if resetprop-rs is installed
+if [ -x "$MODPATH/resetprop-rs" ]; then
+  _rs_tag="✅ resetprop-rs]"
+else
+  _rs_tag="❌ resetprop-rs]"
+fi
+
+# Update module description to reflect current status
+set_description "$_cron_tag $_rs_tag"
+restore_desc_if_needed
 
 # Realme fingerprint fix
 check_resetprop ro.boot.flash.locked 1

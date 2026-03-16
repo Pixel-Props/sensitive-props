@@ -131,6 +131,9 @@ fi
 # Using util_functions.sh
 [ -f "$MODPATH/util_functions.sh" ] && . "$MODPATH/util_functions.sh" || abort "! util_functions.sh not found!"
 
+# Backup original module.prop for status updates
+[ -f "$PROP_FILE" ] && cp -f "$PROP_FILE" "$PROP_BAK"
+
 # Periodic propscleaner cron toggle
 _cron_cfg=$(grep -s '^propscleaner_cron=' "$MODPATH/config.prop" | cut -d= -f2)
 
@@ -186,6 +189,7 @@ if [ -n "$RESETPROP_RS_ASSET" ]; then
   # Read config.prop preference
   _cfg_val=$(grep -s '^download_resetprop_rs=' "$MODPATH/config.prop" | cut -d= -f2)
 
+  ui_print ""
   ui_print "- Download resetprop-rs for enhanced stealth hexpatch?"
   ui_print "  Vol+ = Download | Vol- = Skip (15s timeout)"
 

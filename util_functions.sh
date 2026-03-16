@@ -202,11 +202,13 @@ vol_key_wait() {
   while [ "$_timeout" -gt 0 ]; do
     sleep 1
     if ! kill -0 "$_ge_pid" 2>/dev/null; then
-      _key=$(awk '/KEY_/{print $3}' "$_tmp" 2>/dev/null)
-      case "$_key" in
-        KEY_VOLUMEUP)   VOL_RESULT="up"; break ;;
-        KEY_VOLUMEDOWN) VOL_RESULT="down"; break ;;
-      esac
+      if grep -q 'DOWN' "$_tmp" 2>/dev/null; then
+        if grep -q 'KEY_VOLUMEUP' "$_tmp" 2>/dev/null; then
+          VOL_RESULT="up"; break
+        elif grep -q 'KEY_VOLUMEDOWN' "$_tmp" 2>/dev/null; then
+          VOL_RESULT="down"; break
+        fi
+      fi
       : > "$_tmp"
       getevent -qlc 1 > "$_tmp" 2>/dev/null &
       _ge_pid=$!
@@ -222,7 +224,7 @@ vol_key_wait() {
 # module.prop edit helpers - thanks to KPatch-Next
 PROP_FILE="$MODPATH/module.prop"
 PROP_BAK="$PROP_FILE.bak"
-ORIG_DESC=$(grep '^description=' "$PROP_FILE" 2>/dev/null | cut -d= -f2-)
+ORIG_DESC=$(grep '^description=' "$PROP_BAK" 2>/dev/null | cut -d= -f2-)
 
 set_description() {
   NEW_DESC="$1 $ORIG_DESC"
@@ -235,7 +237,7 @@ set_description() {
   rm -f "$PROP_FILE.tmp"
 }
 
-restore_prop_if_needed() {
+restore_desc_if_needed() {
   grep -q "^id=" "$PROP_FILE" && return
   [ -f "$PROP_BAK" ] && cat "$PROP_BAK" > "$PROP_FILE"
 }
