@@ -42,3 +42,12 @@ for prefix in system vendor system_ext product oem odm vendor_dlkm odm_dlkm boot
         replace_value_resetprop "$prop" "aosp_" ""
     done
 done
+
+# Capture boot_hash early before other modules can tamper with it
+BOOT_HASH_FILE="/data/adb/boot_hash"
+if [ ! -s "$BOOT_HASH_FILE" ]; then
+    _digest=$(resetprop -v ro.boot.vbmeta.digest 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+    if echo "$_digest" | grep -qE '^[a-f0-9]{64}$'; then
+        echo "$_digest" > "$BOOT_HASH_FILE"
+    fi
+fi

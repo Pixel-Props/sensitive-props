@@ -10,3 +10,5 @@ chmod 644 /proc/cmdline
 chmod 644 /proc/net/unix
 chmod 755 /system/addon.d
 chmod 755 /sdcard/TWRP
+
+rm -f /data/adb/boot_hash
