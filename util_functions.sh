@@ -60,7 +60,10 @@ _rp_get() {
 
 _rp_set() {
     if [ -n "$RESETPROP_RS" ]; then
-        "$RESETPROP_RS" "$1" "$2"
+        case "$1" in
+        ro.*) "$RESETPROP_RS" --init "$1" "$2" ;;
+        *)    "$RESETPROP_RS" "$1" "$2" ;;
+        esac
     else
         resetprop $(_build_resetprop_args "$1") "$2"
     fi

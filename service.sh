@@ -150,8 +150,7 @@ missing_resetprop ro.boot.vbmeta.hash_alg sha256
 force_resetprop ro.boot.vbmeta.device_state locked
 force_resetprop ro.boot.vbmeta.invalidate_on_error yes
 
-# Dynamic vbmeta_size -- use partition byte size with A/B slot suffix + multi-path fallback
-# Thanks to Enginex0
+# AVB image size from vbmeta partition header (not raw partition size)
 slot_suffix=$(getprop ro.boot.slot_suffix 2>/dev/null)
 VBMETA_SIZE=""
 for candidate in \
@@ -159,11 +158,17 @@ for candidate in \
     "/dev/block/by-name/vbmeta" \
     "/dev/block/by-name/vbmeta_a" \
     "/dev/block/by-name/vbmeta_b"; do
-    if [ -b "$candidate" ]; then
-        VBMETA_SIZE=$(blockdev --getsize64 "$candidate" 2>/dev/null)
-        [ -n "$VBMETA_SIZE" ] && [ "$VBMETA_SIZE" -gt 0 ] 2>/dev/null && break
-        VBMETA_SIZE=""
-    fi
+    [ -b "$candidate" ] || continue
+    avb_magic=$(dd if="$candidate" bs=1 count=4 2>/dev/null)
+    [ "$avb_magic" = "AVB0" ] || continue
+    # auth_data_block_size (offset 12) + aux_data_block_size (offset 20), both big-endian u64
+    auth_hex=$(dd if="$candidate" bs=1 skip=12 count=8 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+    aux_hex=$(dd if="$candidate" bs=1 skip=20 count=8 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+    auth_hex=$(echo "$auth_hex" | sed 's/^0*//')
+    aux_hex=$(echo "$aux_hex" | sed 's/^0*//')
+    VBMETA_SIZE=$((256 + 0x${auth_hex:-0} + 0x${aux_hex:-0}))
+    [ "$VBMETA_SIZE" -gt 256 ] 2>/dev/null && break
+    VBMETA_SIZE=""
 done
-force_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
+missing_resetprop "ro.boot.vbmeta.size" "${VBMETA_SIZE:-4096}"
 
